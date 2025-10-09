@@ -93,3 +93,42 @@ geom_col(fill="pink") +
   )
 ```
 #Written interpretation: Once we identified the 7 wealthiest states by average family income, we used this graph to see how many of each state's respondents had a food security score of 10, the highest score. By comparison, the dotted line shows the average number of respondents per state with a food security score of 10 across all states in the US.  
+
+\newpage
+```{r}
+#Data Visualization 4: Calculating the percent of respondents who got 10 
+#on the Food Security Score
+
+#Total respondents by state
+tibble1 <- data |>
+count(STATEFIP)
+
+#Scores of 10 by State
+tibble2 <- data |>
+filter(FSRAWSCRA == 10) |>
+count(STATEFIP)
+
+#Percentages of the top 7 States
+percents <- c(0.002, 0.001, 0.003, 0.002, 0.001, 0.001, 0.0005)
+rich_state_codes <- c(9, 24, 27, 33, 34, 44, 49)
+
+richest_states <- data.frame(percents, rich_state_codes)
+
+ggplot(richest_states) +
+geom_line(aes(x = rich_state_codes, y = percents, color = percents)) +
+geom_text(aes(x = rich_state_codes, y = percents, 
+              label = scales::percent(percents)), vjust = -0.5, size = 3) +
+  labs(
+    title = "Percent of Respondents with Food Security Score = 10",
+    subtitle = "Among 7 Wealthiest States",
+    caption = "Sarah Flood, Miriam King, Renae Rodgers, Steven Ruggles,
+J. Robert Warren, Daniel Backman, Annie Chen, Grace Cooper, Stephanie Richards,
+Megan Schouweiler, and Michael Westberry. IPUMS CPS Version 12.0 [dataset]. 
+Minneapolis, MN: IPUMS, 2024. https://doi.org/10.18128/D030.V12.0"
+  )+
+    scale_x_continuous(breaks = rich_state_codes, 
+        labels = c("CT", "MD", "MN", "NH", "NJ", "RI", "UT"), 
+        name =  "States by their FIPS Code") +
+  scale_y_continuous(name = "Percentage of Respondents")
+```
+#Written interpretation: While the number of respondents per state with a food security score of 10 (displayed in the previous graph) is a helpful metric, different states have different amounts of respondents, so the comparison is harder to gauge. Thus, in the line graph above, we calculated the percentage of respondents per state that had a food security score of 10. We also changed the states' FIPS codes into state name acronyms for identification. We can see that Minnesota has the largest percentage of resondents with a food security score of 10, at 0.3%. Utah has the lowest percentage of respondents with a food security score of 10, which aligns with it being the state with the highest average household income. We did notice, however, that the 7 wealthiest states appeared to have a lower number of respondents compared to other states. This potential caveat would be worth exploring if we were to continue this analysis.
