@@ -1,0 +1,161 @@
+---
+title: "Introduction to Data Science Assignment 04"
+subtitle: "Food Security"
+author: "Daniela Nagar dn386, Ronin McCobb rcm125"
+format: html 
+execute: 
+  warning: false
+urlcolor: blue
+editor_options: 
+  chunk_output_type: console
+---
+
+\vspace{0.1in}
+\newpage
+```{r}
+library(tidyverse)
+library(ipumsr)
+library(srvyr)
+library(haven)
+
+ddi <- read_ipums_ddi("cps_00004.xml")
+data_unweighted <- read_ipums_micro(ddi)
+data <- as_survey(data_unweighted, weight = WTFINL) #added weights (person-level weight) after assignment due. This accounts for the design of the survey, which doesn't equally represent each member originally. In othe words, it tells R that each respondent in the survey gets the representative amount of weight they deserve. Recall example of 2 people in VA versus 1 in DC, wanting to give them representative weight.
+```
+
+\newpage
+```{r}
+#I am coding this out because the weighting isn't working properly, but I don't want to lose these notes. Should be revisited with Aaron.
+#Data Visualization 1: Number of Respondents per Food Security Score in the US
+#data |>
+ # filter(FSRAWSCRA < 11 & FSRAWSCRA > 0 ) |>
+  #count(FSRAWSCRA) |> #We use count() because we're calculating a count in this visualization.
+  #ggplot(aes(x=FSRAWSCRA, y=n)) +
+  #geom_col(width = 1, fill = "blue") +
+   #labs(
+    #  title = "Number of Respondents per Food Security Scores 
+     # in the US",
+     # caption = "Sarah Flood, Miriam King, Renae Rodgers, Steven Ruggles,
+#J. Robert Warren, Daniel Backman, Annie Chen, Grace Cooper, Stephanie Richards,
+#Megan Schouweiler, and Michael Westberry. IPUMS CPS Version 12.0 [dataset]. 
+#Minneapolis, MN: IPUMS, 2024. https://doi.org/10.18128/D030.V12.0") +
+  #xlab("Score") +
+  #ylab("Number of Respondents")
+
+##################################################################
+  
+#TAKE 2: Data Visualization 1: Number of Respondents per Food Security Score in the US
+data |>
+  filter(FSRAWSCRA < 11 & FSRAWSCRA > 0 ) |>
+  ggplot(aes(x=FSRAWSCRA)) +
+  geom_bar(width = 1, fill = "blue") +
+   labs(
+      title = "Food Security Scores in the United States",
+      caption = "Sarah Flood, Miriam King, Renae Rodgers, Steven Ruggles,
+J. Robert Warren, Daniel Backman, Annie Chen, Grace Cooper, Stephanie Richards,
+Megan Schouweiler, and Michael Westberry. IPUMS CPS Version 12.0 [dataset]. 
+Minneapolis, MN: IPUMS, 2024. https://doi.org/10.18128/D030.V12.0") +
+  xlab("Score") +
+  ylab("Count") +
+  annotate("text", x = 6, y = 4000, label = "December 2022-24", color = "green", size = 5)
+
+
+```
+
+#Written interpretation: To start, we looked at the number of respondents across all states who have every food security score. Food security scores span from 1-10. Respondents with larger scores are more food insecure. The graph reflects what we would expect by trending downward as scores grow higher, indicating that fewer people are lacking in all food security measures but many are lacking in at least one measure.
+
+\newpage
+```{r}
+#Data Visualization 2: Average Family Income by State Among Wealthiest States
+avg_faminc <- as_survey(data, weight = WTFINL) |>
+  group_by(STATEFIP) |>
+  summarize(avg_faminc = mean(FAMINC, na.rm = TRUE),survey_mean(FAMINC)) |>
+  filter(avg_faminc >=785) |>
+mutate(
+    STATEFIP = as.numeric(STATEFIP))
+
+ggplot(avg_faminc, aes(x = STATEFIP, y = avg_faminc)) +
+  geom_point(color = "blue", size = 3, shape = 18) +
+  geom_text(aes(label = STATEFIP), vjust = -0.5, size = 3) + 
+  labs (
+    title = "Average Family Income by State Among Wealthiest States",
+    x = "State Code",
+    y = "Average Family Income"
+  )
+```
+#Written interpretation: We then grew curious of how the wealthiest states fared in terms of food security scores, so we decided to identify the wealthiest states so we could analyze them further. This graph identifies the 7 wealthiest states based on average family income. Each point has the number state on top of it, so we can identify which 7 states are the wealthiest and use their FIPS codes to inform our next visualization.
+
+\newpage
+```{r}
+#Data Visualization 3: Number of Respondents in the 7 Wealthiest States with 
+#the Highest Food Security Score
+rich_state_codes <- c(9, 24, 27, 33, 34, 44, 49)
+avg_fsrawscra <- data |>
+  group_by(STATEFIP) |>
+  summarize(num_10 = sum(FSRAWSCRA == 10, na.rm = TRUE)) |>
+  summarize(avg_num_10 = mean(num_10)) |> 
+  pull(avg_num_10)
+
+data |>
+filter(FSRAWSCRA == 10, STATEFIP %in% rich_state_codes) |>
+  mutate(STATEFIP = as.numeric(STATEFIP)) |> 
+  ggplot(aes(x = factor(STATEFIP), y = FSRAWSCRA, alpha = 0.2)) +
+geom_col(fill="pink") +
+  geom_hline(yintercept = avg_fsrawscra, linetype = "dotted", 
+             color = "magenta", size = 1) +
+  labs(
+    title = "Number of Respondents in the 7 Wealthiest States with a 
+    Food Security Score of 10",
+    x = "State Code",
+    y = "Food Security Score"
+  )
+```
+#Written interpretation: Once we identified the 7 wealthiest states by average family income, we used this graph to see how many of each state's respondents had a food security score of 10, the highest score. By comparison, the dotted line shows the average number of respondents per state with a food security score of 10 across all states in the US.  
+
+\newpage
+```{r}
+#Data Visualization 4: Calculating the percent of respondents who got 10 
+#on the Food Security Score
+
+#Total respondents by state
+tibble1 <- data |>
+# count(STATEFIP) changing this because it's no longer running 11/16
+group_by(STATEFIP) |>
+  summarize(n = survey_total())
+
+#Scores of 10 by State
+tibble2 <- data |>
+filter(FSRAWSCRA == 10) |>
+#count(STATEFIP) changing this because it's no longer running 11/16
+  group_by(STATEFIP) |>
+  summarize(n = survey_total())
+
+#Percentages of the top 7 States
+percents <- c(0.002, 0.001, 0.003, 0.002, 0.001, 0.001, 0.0005)
+rich_state_codes <- c(9, 24, 27, 33, 34, 44, 49)
+
+richest_states <- data.frame(percents, rich_state_codes)
+
+ggplot(richest_states) +
+geom_line(aes(x = rich_state_codes, y = percents, color = percents)) +
+geom_text(aes(x = rich_state_codes, y = percents, 
+              label = scales::percent(percents)), vjust = -0.5, size = 3) +
+  labs(
+    title = "Percent of Respondents with Food Security Score = 10",
+    subtitle = "Among 7 Wealthiest States",
+    caption = "Sarah Flood, Miriam King, Renae Rodgers, Steven Ruggles,
+J. Robert Warren, Daniel Backman, Annie Chen, Grace Cooper, Stephanie Richards,
+Megan Schouweiler, and Michael Westberry. IPUMS CPS Version 12.0 [dataset]. 
+Minneapolis, MN: IPUMS, 2024. https://doi.org/10.18128/D030.V12.0"
+  )+
+    scale_x_continuous(breaks = rich_state_codes, 
+        labels = c("CT", "MD", "MN", "NH", "NJ", "RI", "UT"), 
+        name =  "States by their FIPS Code") +
+  scale_y_continuous(name = "Percentage of Respondents")
+```
+#Written interpretation: While the number of respondents per state with a food security score of 10 (displayed in the previous graph) is a helpful metric, different states have different amounts of respondents, so the comparison is harder to gauge. Thus, in the line graph above, we calculated the percentage of respondents per state that had a food security score of 10. We also changed the states' FIPS codes into state name acronyms for identification. We can see that Minnesota has the largest percentage of resondents with a food security score of 10, at 0.3%. Utah has the lowest percentage of respondents with a food security score of 10, which aligns with it being the state with the highest average household income. We did notice, however, that the 7 wealthiest states appeared to have a lower number of respondents compared to other states. This potential caveat would be worth exploring if we were to continue this analysis.
+
+```{r}
+#I am making changes to my code for the stretch assignment :)
+```
+
